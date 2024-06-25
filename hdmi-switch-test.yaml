@@ -1,0 +1,134 @@
+#https://downloads.monoprice.com/files/manuals/43878_Manual_220331.pdf
+esphome:
+  name: hdmi-switch-test
+  friendly_name: hdmi-switch-test
+  includes:
+    - test/wuh4arch2_uart_test.h
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+   level: VERBOSE
+   baud_rate: 0
+
+# Enable Home Assistant API
+api:
+  on_client_connected:
+    uart.write: ">>SYSInfo\r\n"
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Hdmi-Switch-Test"
+    password: "w67okvU3WllS"
+
+captive_portal:
+
+uart:
+  id: hdmi_switch_uart
+  tx_pin: D8
+  rx_pin: D7
+  baud_rate: 9600
+  #debug:
+  #  direction: BOTH
+  #  dummy_receiver: true
+  #  after:
+  #    delimiter: " "
+  #  sequence:
+  #    - lambda: UARTDebug::log_string(direction, bytes);
+
+switch:
+  - platform: uart
+    name: "HDMI 1"
+    data: ">>HDMI1\r\n"
+  - platform: uart
+    name: "HDMI 2"
+    data: ">>HDMI2\r\n"
+  - platform: uart
+    name: "HDMI 3"
+    data: ">>HDMI3\r\n"
+  - platform: uart
+    name: "HDMI 4"
+    data: ">>HDMI4\r\n"
+  - platform: uart
+    name: "System Info"
+    data: ">>SYSInfo\r\n"
+  - platform: uart
+    name: "System Reset"
+    data: ">>RESET\r\n"
+  - platform: uart
+    name: "Audio Input: ARC"
+    data: ">>AUDExternal\r\n"
+  - platform: uart
+    name: "Audio Input: HDMI"
+    data: ">>AUDInternal\r\n"
+  - platform: uart
+    name: "HDMI Switch Mode: Auto"
+    data: ">>AUTO\r\n"
+  - platform: uart
+    name: "HDMI Switch Mode: Manual"
+    data: ">>MANUAL\r\n"
+  - platform: uart
+    name: "Device On"
+    data: ">>SRCOn\r\n"
+
+select:
+  - platform: template
+    name: Input
+    id: hdmi_input
+    options:
+     - "HDMI 1"
+     - "HDMI 2"
+     - "HDMI 3"
+     - "HDMI 4"
+    initial_option: "HDMI 1"
+    optimistic: false
+    set_action:
+      - logger.log:
+          format: "Chosen option: %s"
+          args: ["x.c_str()"]
+      - uart.write: ">>HDMI1\r\n"
+
+text_sensor:
+- platform: custom
+  lambda: |-
+    auto mp43878 = new WUH4ARCH2_UART(id(hdmi_switch_uart));
+    App.register_component(mp43878);
+    return {mp43878->last_line,mp43878->last_error,mp43878->hdmi_source, mp43878->audio_input, mp43878->switch_mode, mp43878->edid, mp43878->firmware_version};
+  text_sensors:
+    - id: "last_line"
+      name: "Last Line"
+    - id: "last_error"
+      name: "Last Error"
+    - id: "hdmi_source"
+      name: "HDMI Source"
+      #on_value:
+      #  then:
+      #    - logger.log:
+      #        format: "select current id %s and new id %s"
+      #        args: [ 'id(hdmi_input).value', 'x.c_str()' ]
+          #- lambda: |-
+          #    auto call = id(hdmi_input).make_call();
+          #    if (strcmp(x.c_str(), "HDMI1") == 0) {
+          #      call.set_option("HDMI 1");
+          #      call.perform();
+          #    } else if ((strcmp(x.c_str(), "HDMI2") == 0) {
+          #      call.set_option("HDMI 2");
+          #      call.perform();
+          #    }
+    - id: "audio_input"
+      name: "Audio Input"
+    - id: "switch_mode"
+      name: "Switch Mode"
+    - id: "edid"
+      name: "EDID"
+    - id: "firmware_version"
+      name: "Frimware Version"
